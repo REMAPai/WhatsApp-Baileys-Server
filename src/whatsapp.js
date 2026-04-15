@@ -5,6 +5,8 @@ const {
   DisconnectReason,
   Browsers,
   fetchLatestBaileysVersion,
+  jidDecode,
+  isLidUser,
 } = require("@whiskeysockets/baileys");
 const QRCode = require("qrcode");
 const qrcodeTerminal = require("qrcode-terminal");
@@ -13,10 +15,26 @@ const logger = require("./logger");
 const db = require("./db");
 
 let sock = null;
+let authKeys = null;
 let connectionStatus = "disconnected";
 let currentQrBase64 = null;
 let userInfo = null;
 let manualDisconnect = false;
+
+async function resolveLidToPhone(jid) {
+  if (!jid || !isLidUser(jid)) return null;
+  try {
+    const decoded = jidDecode(jid);
+    if (!decoded) return null;
+    const reverseKey = `${decoded.user}_reverse`;
+    const stored = await authKeys.get("lid-mapping", [reverseKey]);
+    const phone = stored[reverseKey];
+    if (phone && typeof phone === "string") return phone;
+  } catch {
+    // mapping not found
+  }
+  return null;
+}
 
 async function init() {
   manualDisconnect = false;
@@ -24,6 +42,7 @@ async function init() {
   logger.info({ version }, "Using WA version");
 
   const { state, saveCreds } = await useMultiFileAuthState(config.authFolder);
+  authKeys = state.keys;
 
   sock = makeWASocket({
     version,
@@ -89,6 +108,12 @@ async function init() {
 
   sock.ev.on("creds.update", saveCreds);
 
+  const SKIP_TYPES = new Set([
+    "protocolMessage",
+    "senderKeyDistributionMessage",
+    "messageContextInfo",
+  ]);
+
   sock.ev.on("messages.upsert", async ({ messages, type }) => {
     const cutoff =
       Math.floor(Date.now() / 1000) - config.syncDays * 24 * 60 * 60;
@@ -104,13 +129,24 @@ async function init() {
 
       if (ts && ts < cutoff) continue;
 
-      const messageType = Object.keys(msg.message)[0];
+      const messageKeys = Object.keys(msg.message).filter(
+        (k) => !SKIP_TYPES.has(k),
+      );
+      if (messageKeys.length === 0) continue;
+
+      const messageType = messageKeys[0];
       const textContent =
         msg.message.conversation || msg.message.extendedTextMessage?.text || "";
+
+      const sender = msg.key.participant || msg.key.remoteJid;
+      const phone = await resolveLidToPhone(sender) || await resolveLidToPhone(msg.key.remoteJid);
 
       const messageData = {
         id: msg.key.id,
         remoteJid: msg.key.remoteJid,
+        sender,
+        phone: phone || null,
+        pushName: msg.pushName || null,
         fromMe: msg.key.fromMe || false,
         timestamp: ts,
         messageType,
@@ -120,7 +156,8 @@ async function init() {
 
       logger.info(
         {
-          from: messageData.remoteJid,
+          from: messageData.sender,
+          name: messageData.pushName,
           text: messageData.textContent,
           type: messageType,
         },
