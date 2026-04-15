@@ -1,0 +1,13 @@
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "3020:3020"
+    env_file:
+      - .env
+    volumes:
+      - auth_info:/app/auth_info
+
+volumes:
+  auth_info:
