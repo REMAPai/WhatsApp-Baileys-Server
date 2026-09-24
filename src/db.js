@@ -81,7 +81,7 @@ async function insertMessage({
 
 async function getMessages({ limit = 50, offset = 0 } = {}) {
   const result = await pool.query(
-    `SELECT id, remote_jid, sender, phone, push_name, from_me, timestamp, message_type, text_content, created_at
+    `SELECT id, remote_jid, sender, phone, push_name, from_me, timestamp, message_type, text_content, chat_name, is_group, created_at
      FROM messages
      ORDER BY created_at DESC
      LIMIT $1 OFFSET $2`,
