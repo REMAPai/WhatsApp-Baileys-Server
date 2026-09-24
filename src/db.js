@@ -32,6 +32,12 @@ async function initDatabase() {
     await client.query(
       `ALTER TABLE messages ADD COLUMN IF NOT EXISTS phone TEXT`,
     );
+    await client.query(
+      `ALTER TABLE messages ADD COLUMN IF NOT EXISTS chat_name TEXT`,
+    );
+    await client.query(
+      `ALTER TABLE messages ADD COLUMN IF NOT EXISTS is_group BOOLEAN NOT NULL DEFAULT false`,
+    );
     logger.info("Database initialized — messages table ready");
   } finally {
     client.release();
@@ -49,10 +55,12 @@ async function insertMessage({
   messageType,
   textContent,
   rawMessage,
+  chatName,
+  isGroup,
 }) {
   await pool.query(
-    `INSERT INTO messages (id, remote_jid, sender, phone, push_name, from_me, timestamp, message_type, text_content, raw_message)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+    `INSERT INTO messages (id, remote_jid, sender, phone, push_name, from_me, timestamp, message_type, text_content, raw_message, chat_name, is_group)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
      ON CONFLICT (id) DO NOTHING`,
     [
       id,
@@ -65,6 +73,8 @@ async function insertMessage({
       messageType,
       textContent,
       rawMessage,
+      chatName,
+      isGroup,
     ],
   );
 }
