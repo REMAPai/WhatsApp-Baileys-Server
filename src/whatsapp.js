@@ -21,6 +21,8 @@ let currentQrBase64 = null;
 let userInfo = null;
 let manualDisconnect = false;
 
+const groupNameCache = new Map();
+
 async function resolveLidToPhone(jid) {
   if (!jid || !isLidUser(jid)) return null;
   try {
@@ -34,6 +36,25 @@ async function resolveLidToPhone(jid) {
     // mapping not found
   }
   return null;
+}
+
+async function resolveChatName(remoteJid, isGroup, fallbackPushName) {
+  if (!isGroup) {
+    return fallbackPushName || null;
+  }
+
+  if (groupNameCache.has(remoteJid)) {
+    return groupNameCache.get(remoteJid);
+  }
+
+  try {
+    const meta = await sock.groupMetadata(remoteJid);
+    const name = meta.subject || null;
+    groupNameCache.set(remoteJid, name);
+    return name;
+  } catch {
+    return null; // couldn't resolve, leave null rather than fail the message
+  }
 }
 
 async function init() {
@@ -141,6 +162,9 @@ async function init() {
       const sender = msg.key.participant || msg.key.remoteJid;
       const phone = await resolveLidToPhone(sender) || await resolveLidToPhone(msg.key.remoteJid);
 
+      const isGroup = msg.key.remoteJid.endsWith("@g.us");
+      const chatName = await resolveChatName(msg.key.remoteJid, isGroup, msg.pushName);
+
       const messageData = {
         id: msg.key.id,
         remoteJid: msg.key.remoteJid,
@@ -152,6 +176,8 @@ async function init() {
         messageType,
         textContent,
         rawMessage: JSON.parse(JSON.stringify(msg.message)),
+        chatName,
+        isGroup,
       };
 
       logger.info(
