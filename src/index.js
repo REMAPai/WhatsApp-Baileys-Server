@@ -33,6 +33,30 @@ app.use('/api', prioritiesRouter);
 app.use('/api', threadRouter);
 app.use('/api', searchRouter);
 
+app.post('/mcp', async (req, res) => {
+  try {
+    const server = createMcpServer();
+    const transport = new StreamableHTTPServerTransport({
+      sessionIdGenerator: undefined,
+    });
+    res.on('close', () => {
+      transport.close();
+      server.close();
+    });
+    await server.connect(transport);
+    await transport.handleRequest(req, res, req.body);
+  } catch (err) {
+    logger.error({ err }, 'MCP request failed');
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'MCP request failed' });
+    }
+  }
+});
+
+app.get('/mcp', (req, res) => {
+  res.status(405).json({ error: 'Method not allowed. This MCP endpoint only accepts POST.' });
+});
+
 app.get('/', (req, res) => {
   res.json({ name: 'WhatsApp Baileys Server', status: 'running' });
 });
@@ -49,7 +73,8 @@ async function main() {
     console.log(`    GET  /api/qr       — QR code for authentication`);
     console.log(`    POST /api/send     — Send a message`);
     console.log(`    GET  /api/messages — Fetch received messages`);
-    console.log(`    POST /api/logout   — Disconnect WhatsApp\n`);
+    console.log(`    POST /api/logout   — Disconnect WhatsApp`);
+    console.log(`    POST /mcp          — MCP connector endpoint\n`);
   });
 }
 
