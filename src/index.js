@@ -11,6 +11,10 @@ const sendRouter = require('./routes/send');
 const messagesRouter = require('./routes/messages');
 const logoutRouter = require('./routes/logout');
 
+const prioritiesRouter = require('./routes/priorities');
+const threadRouter = require('./routes/thread');
+const searchRouter = require('./routes/search');
+
 const app = express();
 
 app.use(cors());
@@ -21,6 +25,10 @@ app.use('/api', qrRouter);
 app.use('/api', sendRouter);
 app.use('/api', messagesRouter);
 app.use('/api', logoutRouter);
+
+app.use('/api', prioritiesRouter);
+app.use('/api', threadRouter);
+app.use('/api', searchRouter);
 
 app.get('/', (req, res) => {
   res.json({ name: 'WhatsApp Baileys Server', status: 'running' });
