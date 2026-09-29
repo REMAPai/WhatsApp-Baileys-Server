@@ -97,10 +97,48 @@ async function getMessageCount() {
   return result.rows[0].count;
 }
 
+async function getTodayPriorities() {
+  const result = await pool.query(
+    `SELECT chat_name, remote_jid, final_score, reason, needs_response, message_count, last_message_at
+     FROM priority_scores
+     WHERE scored_date = CURRENT_DATE
+       AND needs_response = true
+     ORDER BY final_score DESC`,
+  );
+  return result.rows;
+}
+
+async function getThreadSummary(remoteJid) {
+  const result = await pool.query(
+    `SELECT push_name, from_me, text_content, created_at
+     FROM messages
+     WHERE remote_jid = $1
+     ORDER BY created_at DESC
+     LIMIT 50`,
+    [remoteJid],
+  );
+  return result.rows.reverse(); // oldest first, readable order
+}
+
+async function searchSignals(query) {
+  const result = await pool.query(
+    `SELECT remote_jid, chat_name, push_name, from_me, text_content, created_at
+     FROM messages
+     WHERE text_content ILIKE $1
+     ORDER BY created_at DESC
+     LIMIT 50`,
+    [`%${query}%`],
+  );
+  return result.rows;
+}
+
 module.exports = {
   pool,
   initDatabase,
   insertMessage,
   getMessages,
   getMessageCount,
+  getTodayPriorities,
+  getThreadSummary,
+  searchSignals,
 };
