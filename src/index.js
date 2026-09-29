@@ -15,6 +15,9 @@ const prioritiesRouter = require('./routes/priorities');
 const threadRouter = require('./routes/thread');
 const searchRouter = require('./routes/search');
 
+const { createMcpServer } = require('./mcp');
+const { StreamableHTTPServerTransport } = require('@modelcontextprotocol/sdk/server/streamableHttp.js');
+
 const app = express();
 
 app.use(cors());
